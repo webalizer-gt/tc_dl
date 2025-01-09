@@ -101,8 +101,8 @@ def download_clips(clips):
         try:
             # Clip-Informationen abrufen
             clip_url = clip.get("url")
-            clip_title = re.sub(r"[^\w\s]", "", clip.get("title", "clip")).replace(" ", "_")
-            clip_creator = re.sub(r"[^\w\s]", "", clip.get("creator_name", "unknown")).replace(" ", "_")
+            clip_title = re.sub(r"[^\w\s]", "", clip.get("title", "untitled")).strip()
+            clip_creator = re.sub(r"[^\w\s]", "", clip.get("creator_name", "unknown")).strip()
             clip_date = clip.get("created_at", "").split("T")[0]
 
             # Überprüfen, ob wichtige Daten vorhanden sind
