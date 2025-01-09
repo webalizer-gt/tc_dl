@@ -1,6 +1,24 @@
 # tc_dl
 Bulk download Twitch-Clips from specific channel and time frame in Python.
 
+## Voraussetzungen
+- Python 3.x
+- Ein **Twitch-Account**
+- Zugang zum Twitch-Developer-Dashboard (nur mit Zwei-Faktor-Auth möglich!)
+- Twitch Client-ID und OAuth-Token (siehe unten)
+- Die zwei Scripte `tc_dl.py` und `twitch_oauth.py`
+
+Das Download-Script arbeitet im Verzeichnis, in dem es ausgeführt wird. D.h. dort werden die Clips gespeichert!
+  
+### **Erforderliche Python-Pakete:**
+- `requests`
+- `yt-dlp`
+
+Installiere sie mit:
+```bash
+pip install requests yt-dlp
+```
+
 # Anleitung: Twitch Client-ID, Client-Secret und OAuth-Token erstellen
 
 Diese Anleitung beschreibt, wie Sie eine Twitch Client-ID, ein Client-Secret sowie ein OAuth-Token erstellen, um die Twitch-API nutzen zu können.
