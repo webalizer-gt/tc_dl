@@ -14,7 +14,7 @@ Das Download-Script arbeitet im Verzeichnis, in dem es ausgeführt wird. D.h. do
 - `requests`
 - `yt-dlp`
 
-Installiere sie mit:
+Installiere sie in `cmd` mit:
 ```bash
 pip install requests yt-dlp
 ```
