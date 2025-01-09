@@ -6,7 +6,7 @@ Bulk download Twitch-Clips from specific channel and time frame in Python.
 - Ein **Twitch-Account**
 - Zugang zum Twitch-Developer-Dashboard (nur mit Zwei-Faktor-Auth möglich!)
 - Twitch Client-ID und OAuth-Token (siehe unten)
-- Die zwei Scripte `tc_dl.py` und `twitch_oauth.py`
+- Die zwei Scripte `tc_dl.py` und `twitch_oauth.py` - lege sie im dem Verzeichnis ab, wo auch die Clips landen sollen
 
 Das Download-Script arbeitet im Verzeichnis, in dem es ausgeführt wird. D.h. dort werden die Clips gespeichert!
   
@@ -18,6 +18,12 @@ Installiere sie mit:
 ```bash
 pip install requests yt-dlp
 ```
+
+## Anleitung: Clips herunterladen
+- Starte das Script `tc_dl.py` über Rechtsklick -> Öffnen mit "Python" oder per `cmd`
+- Gib einen Kanalnamen an oder verwende den Standardnamen durch drücken von `Enter`
+- Gib das Datum ein, AB dem Clips geladen werden sollen
+- Gib das Datum ein, BIS zu dem Clips geladen werden sollen
 
 # Anleitung: Twitch Client-ID, Client-Secret und OAuth-Token erstellen
 
