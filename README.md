@@ -20,7 +20,7 @@ pip install requests yt-dlp
 ```
 
 ## Anleitung: Clips herunterladen
-- Starte das Script `tc_dl.py` über Rechtsklick -> Öffnen mit "Python" oder per `cmd`
+- Starte das Script `tc_dl.py` über Rechtsklick -> Öffnen mit "Python" oder per `cmd` (`C:\>python tc_dl.py`)
 - Gib einen Kanalnamen an oder verwende den Standardnamen durch drücken von `Enter`
 - Gib das Datum ein, AB dem Clips geladen werden sollen
 - Gib das Datum ein, BIS zu dem Clips geladen werden sollen
