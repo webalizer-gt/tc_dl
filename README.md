@@ -2,7 +2,7 @@
 Bulk download Twitch-Clips from specific channel and time frame in Python.
 
 ## Voraussetzungen
-- Python 3.x
+- Python 3.x (In Windows 10/11 über Store installieren!)
 - Ein **Twitch-Account**
 - Zugang zum Twitch-Developer-Dashboard (nur mit Zwei-Faktor-Auth möglich!)
 - Twitch Client-ID und OAuth-Token (siehe unten)
