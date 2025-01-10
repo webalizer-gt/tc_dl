@@ -6,9 +6,7 @@ Bulk download Twitch clips from a specific channel and time frame written in Pyt
 - A **Twitch account**
 - Access to the Twitch Developer Dashboard (only possible with two-factor authentication!)
 - Twitch Client-ID and OAuth token (see below)
-- The two scripts `tc_dl.py` and `twitch_oauth.py` - place them in the directory where the clips should be saved
-
-The download script works in the directory where it is executed. This means that the clips will be saved there!
+- The script `tc_dl.py` - place them in a directory of your choice.
   
 ### **Required Python packages:**
 - `requests`
