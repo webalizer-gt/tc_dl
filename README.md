@@ -23,7 +23,7 @@ pip install requests yt-dlp
 
 ## Configure the script
 
-1. Run the script `tc_dl.py` with the option -c. You can do this by right-clicking the file and selecting "Open with Python" or by using the command line:
+1. Run the script `tc_dl.py` with the option -c. You can do by using the command line:
    ```bash
    C:\Directory\>python tc_dl.py -c
    ```
