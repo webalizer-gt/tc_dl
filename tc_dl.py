@@ -47,92 +47,14 @@ CLIPS_API_URL = "https://api.twitch.tv/helix/clips"
 GAME_API_URL = "https://api.twitch.tv/helix/games"
 LIMIT = 10  # Max clips per request
 
-def get_downloads_path():
-    if platform.system() == "Windows":
-        # For Windows, use the `USERPROFILE` environment variable
-        downloads_path = os.path.join(os.environ['USERPROFILE'], 'Downloads')
-    else:
-        # For Linux and macOS, use the `HOME` environment variable
-        downloads_path = os.path.join(os.environ['HOME'], 'Downloads')
-    return downloads_path
-
-def get_game_name(game_id):
-    """
-    Fetch the name of a game based on its game_id.
-    
-    Args:
-        game_id (str): The ID of the game.
-
-    Returns:
-        str: The name of the game or "Unknown" if an error occurs.
-    """
-    auth_config = get_auth_config()
-    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
-    params = {"id": game_id}
-
-    try:
-        response = requests.get(GAME_API_URL, headers=headers, params=params)
-        response.raise_for_status()
-        data = response.json()
-        if "data" in data and len(data["data"]) > 0:
-            return data["data"][0]["name"]  # The name of the game
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching game name for game_id {game_id}: {e}")
-    
-    return "Unknown"
-
-def manage_twitch_oauth_token(client_id=None, client_secret=None):
-    """
-    Generates or renews a Twitch OAuth token using the client_credentials grant type.
-
-    Args:
-        client_id (str, optional): The Client ID of the Twitch application. Defaults to None.
-        client_secret (str, optional): The Client Secret of the Twitch application. Defaults to None.
-
-    Returns:
-        dict: A dictionary with the access token and other information, or None if an error occurred.
-    """
-    auth = get_auth_config()
-    client_id = client_id or auth.get("client_id")
-    client_secret = client_secret or auth.get("client_secret")
-
-    if not client_id or not client_secret:
-        print("Client ID or Client Secret not provided.")
-        return None
-
-    url = "https://id.twitch.tv/oauth2/token"
-    data = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "client_credentials"
-    }
-
-    try:
-        response = requests.post(url, data=data)
-        response.raise_for_status()
-        token_data = response.json()
-
-        if token_data:
-            access_token = token_data.get("access_token")
-            expires_in = token_data.get("expires_in")
-            expiration_date = datetime.now() + timedelta(seconds=expires_in)
-            formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
-
-            print(f"Token generated. New access token: {access_token}, expires at: {formatted_date}")
-
-            # Save auth configuration
-            save_config_section("auth", {
-                "client_id": client_id,
-                "client_secret": client_secret,
-                "access_token": access_token,
-                "expires_at": formatted_date
-            })
-            return token_data
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error generating token: {e}")
-
-    return None
+def parse_arguments():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Twitch clip downloader.")
+    parser.add_argument(
+        "-c", action="store_true",
+        help="Configure user defaults and Twitch credentials."
+    )
+    return parser.parse_args()
 
 def load_config():
     """Load configuration from config.json if it exists."""
@@ -148,24 +70,14 @@ def load_config():
         config = {}
         get_defaults()
 
-def get_user_config():
-    """Extract user configuration from the loaded config."""
-    user_config = config.get("user", {})
-    return {
-        "default_user_name": user_config.get("default_user_name"),
-        "spacer": user_config.get("spacer", " ¦ "),
-        "dl_folder": user_config.get("dl_folder")
-    }
-
-def get_auth_config():
-    """Extract authentication configuration from the loaded config."""
-    auth_config = config.get("auth", {})
-    return {
-        "client_id": auth_config.get("client_id", ""),
-        "client_secret": auth_config.get("client_secret", ""),
-        "oauth_token": auth_config.get("access_token", ""),
-        "expires_at": auth_config.get("expires_at", "")
-    }
+def get_downloads_path():
+    if platform.system() == "Windows":
+        # For Windows, use the `USERPROFILE` environment variable
+        downloads_path = os.path.join(os.environ['USERPROFILE'], 'Downloads')
+    else:
+        # For Linux and macOS, use the `HOME` environment variable
+        downloads_path = os.path.join(os.environ['HOME'], 'Downloads')
+    return downloads_path
 
 def get_defaults():
     """Prompt the user for configuration values and save them to config.json."""
@@ -238,6 +150,17 @@ def get_defaults():
         "expires_at": auth_config.get("expires_at", "")
     })
 
+def is_token_valid():
+    auth = config.get("auth", {})
+    if "access_token" in auth and auth["access_token"] and "expires_at" in auth:
+        try:
+            expires_at = datetime.strptime(auth["expires_at"], "%Y-%m-%d %H:%M:%S")
+            return datetime.now() < expires_at
+        except ValueError:
+            print("Invalid date format in expires_at.")
+            return False
+    return False
+
 def save_config_section(section, data):
     """
     Save updates to a specific section of the configuration dictionary.
@@ -257,25 +180,77 @@ def save_config_section(section, data):
         json.dump(config, file, indent=4)
     print(f"{section.capitalize()} configuration saved to {CONFIG_FILE}.")
 
-def is_token_valid():
-    auth = config.get("auth", {})
-    if "access_token" in auth and auth["access_token"] and "expires_at" in auth:
-        try:
-            expires_at = datetime.strptime(auth["expires_at"], "%Y-%m-%d %H:%M:%S")
-            return datetime.now() < expires_at
-        except ValueError:
-            print("Invalid date format in expires_at.")
-            return False
-    return False
+def manage_twitch_oauth_token(client_id=None, client_secret=None):
+    """
+    Generates or renews a Twitch OAuth token using the client_credentials grant type.
 
-def parse_arguments():
-    """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(description="Twitch clip downloader.")
-    parser.add_argument(
-        "-c", action="store_true",
-        help="Configure user defaults and Twitch credentials."
-    )
-    return parser.parse_args()
+    Args:
+        client_id (str, optional): The Client ID of the Twitch application. Defaults to None.
+        client_secret (str, optional): The Client Secret of the Twitch application. Defaults to None.
+
+    Returns:
+        dict: A dictionary with the access token and other information, or None if an error occurred.
+    """
+    auth = get_auth_config()
+    client_id = client_id or auth.get("client_id")
+    client_secret = client_secret or auth.get("client_secret")
+
+    if not client_id or not client_secret:
+        print("Client ID or Client Secret not provided.")
+        return None
+
+    url = "https://id.twitch.tv/oauth2/token"
+    data = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "grant_type": "client_credentials"
+    }
+
+    try:
+        response = requests.post(url, data=data)
+        response.raise_for_status()
+        token_data = response.json()
+
+        if token_data:
+            access_token = token_data.get("access_token")
+            expires_in = token_data.get("expires_in")
+            expiration_date = datetime.now() + timedelta(seconds=expires_in)
+            formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
+
+            print(f"Token generated. New access token: {access_token}, expires at: {formatted_date}")
+
+            # Save auth configuration
+            save_config_section("auth", {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "access_token": access_token,
+                "expires_at": formatted_date
+            })
+            return token_data
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error generating token: {e}")
+
+    return None
+
+def get_user_config():
+    """Extract user configuration from the loaded config."""
+    user_config = config.get("user", {})
+    return {
+        "default_user_name": user_config.get("default_user_name"),
+        "spacer": user_config.get("spacer", " ¦ "),
+        "dl_folder": user_config.get("dl_folder")
+    }
+
+def get_auth_config():
+    """Extract authentication configuration from the loaded config."""
+    auth_config = config.get("auth", {})
+    return {
+        "client_id": auth_config.get("client_id", ""),
+        "client_secret": auth_config.get("client_secret", ""),
+        "oauth_token": auth_config.get("access_token", ""),
+        "expires_at": auth_config.get("expires_at", "")
+    }
 
 def get_channel_name():
     """Prompt for the Twitch channel name."""
@@ -284,26 +259,6 @@ def get_channel_name():
     user_name = input(f"Please enter the Twitch channel name (Default: {default_user_name}): ").strip()
     print()  # empty line
     return user_name or default_user_name
-
-def get_time_range():
-    """Prompt for the time range for clips."""
-    start_date = input("Please enter the start date for the clips (YYYY-MM-DD): ").strip()
-    end_date = input("Please enter the end date for the clips (YYYY-MM-DD): ").strip()
-    print()  # empty line
-
-    # Validate dates
-    try:
-        start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
-        end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
-    except ValueError:
-        print("Invalid date format. Please use YYYY-MM-DD.")
-        exit(1)
-
-    if start_timestamp > end_timestamp:
-        print("Error: Start date is after the end date.")
-        exit(1)
-
-    return start_timestamp, end_timestamp
 
 def get_broadcaster_id(user_name):
     """Get the broadcaster ID based on the channel name."""
@@ -325,6 +280,25 @@ def get_broadcaster_id(user_name):
         print(f"Error fetching broadcaster ID for user {user_name}: {e}")
         return None
 
+def get_time_range():
+    """Prompt for the time range for clips."""
+    start_date = input("Please enter the start date for the clips (YYYY-MM-DD): ").strip()
+    end_date = input("Please enter the end date for the clips (YYYY-MM-DD): ").strip()
+    print()  # empty line
+
+    # Validate dates
+    try:
+        start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
+        end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
+    except ValueError:
+        print("Invalid date format. Please use YYYY-MM-DD.")
+        exit(1)
+
+    if start_timestamp > end_timestamp:
+        print("Error: Start date is after the end date.")
+        exit(1)
+
+    return start_timestamp, end_timestamp
 
 def get_clips(broadcaster_id, start_timestamp, end_timestamp):
     """Fetch clips from the Twitch API."""
@@ -358,6 +332,30 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
 
     return clips
 
+def get_game_name(game_id):
+    """
+    Fetch the name of a game based on its game_id.
+    
+    Args:
+        game_id (str): The ID of the game.
+
+    Returns:
+        str: The name of the game or "Unknown" if an error occurs.
+    """
+    auth_config = get_auth_config()
+    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
+    params = {"id": game_id}
+
+    try:
+        response = requests.get(GAME_API_URL, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if "data" in data and len(data["data"]) > 0:
+            return data["data"][0]["name"]  # The name of the game
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching game name for game_id {game_id}: {e}")
+    
+    return "Unknown"
 
 def download_clips(clips):
     """Download clips using yt-dlp and format file names as specified."""
@@ -451,7 +449,6 @@ def open_clips_in_vlc(clips):
         print(f"Error: {os_error}")
     except Exception as ex:
         print(f"An unexpected error occurred: {ex}")
-
 
 def main():
     """Main program."""
