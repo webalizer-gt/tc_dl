@@ -24,7 +24,7 @@ pip install requests yt-dlp
 ## Configure the script
 
 1. When the script is run for the first time or no configuration file is found, it automatically starts in configuration mode. If you want to make changes later, you can start it with the -c option:
-   ```bash
+   ```cmd
    C:\Directory\>python tc_dl.py -c
    ```
 2. Enter a default channel name you want to download clips from.
