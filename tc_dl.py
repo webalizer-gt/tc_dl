@@ -34,6 +34,8 @@ import re
 import json
 import argparse
 from datetime import datetime, timedelta
+import subprocess
+import shutil
 
 # Default values
 CONFIG_FILE = "config.json"
@@ -79,17 +81,25 @@ def get_game_name(game_id):
     
     return "Unknown"
 
-def generate_twitch_oauth_token(client_id, client_secret):
+def manage_twitch_oauth_token(client_id=None, client_secret=None):
     """
-    Generates an OAuth token for Twitch.
+    Generates or renews a Twitch OAuth token using the client_credentials grant type.
 
     Args:
-        client_id (str): The Client ID of the Twitch application.
-        client_secret (str): The Client Secret of the Twitch application.
+        client_id (str, optional): The Client ID of the Twitch application. Defaults to None.
+        client_secret (str, optional): The Client Secret of the Twitch application. Defaults to None.
 
     Returns:
-        dict: A dictionary with the access token and other information.
+        dict: A dictionary with the access token and other information, or None if an error occurred.
     """
+    auth = get_auth_config()
+    client_id = client_id or auth.get("client_id")
+    client_secret = client_secret or auth.get("client_secret")
+
+    if not client_id or not client_secret:
+        print("Client ID or Client Secret not provided.")
+        return None
+
     url = "https://id.twitch.tv/oauth2/token"
     data = {
         "client_id": client_id,
@@ -100,10 +110,24 @@ def generate_twitch_oauth_token(client_id, client_secret):
     try:
         response = requests.post(url, data=data)
         response.raise_for_status()
-        return response.json()
+        token_data = response.json()
+
+        if token_data:
+            access_token = token_data.get("access_token")
+            expires_in = token_data.get("expires_in")
+            expiration_date = datetime.now() + timedelta(seconds=expires_in)
+            formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
+
+            print(f"Token generated. New access token: {access_token}, expires at: {formatted_date}")
+
+            # Save the token data to the configuration
+            save_auth_config(client_id, client_secret, access_token, formatted_date)
+            return token_data
+
     except requests.exceptions.RequestException as e:
         print(f"Error generating token: {e}")
-        return None
+
+    return None
 
 def load_config():
     """Load configuration from config.json if it exists."""
@@ -235,35 +259,6 @@ def is_token_valid():
             return False
     return False
 
-def renew_token():
-    auth = config.get("auth", {})
-    client_id = auth.get("client_id")
-    client_secret = auth.get("client_secret")
-    
-    if not client_id or not client_secret:
-        print("Client ID or Client Secret not found in configuration.")
-        return
-
-    token_data = generate_twitch_oauth_token(client_id, client_secret)
-
-    if token_data:
-        access_token = token_data.get("access_token")
-        expires_in = token_data.get("expires_in")
-        expiration_date = datetime.now() + timedelta(seconds=expires_in)
-        formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
-
-        print(f"Token renewed. New access token: {access_token}, expires at: {formatted_date}")
-
-        auth.update({
-            "access_token": access_token,
-            "expires_at": formatted_date,
-        })
-        config["auth"] = auth
-
-        save_auth_config(client_id, client_secret, access_token, formatted_date)
-    else:
-        print("Error renewing token.")
-
 def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Twitch clip downloader.")
@@ -286,7 +281,6 @@ def get_time_range():
     start_date = input("Please enter the start date for the clips (YYYY-MM-DD): ").strip()
     end_date = input("Please enter the end date for the clips (YYYY-MM-DD): ").strip()
     print()  # empty line
-
 
     # Validate dates
     try:
@@ -361,9 +355,12 @@ def download_clips(clips):
     user_config = get_user_config()
     spacer = user_config["spacer"]
     dl_folder = user_config["dl_folder"]
+    downloaded_clips = []  # List to store paths of downloaded clips
+
     for clip in clips:
         try:
             # Retrieve clip information
+            broadcaster_name = re.sub(r"[^\w\s]", "", clip.get("broadcaster_name", "unknown")).strip()
             clip_url = clip.get("url")
             clip_title = re.sub(r"[^\w\s]", "", clip.get("title", "untitled")).strip()
             clip_creator = re.sub(r"[^\w\s]", "", clip.get("creator_name", "unknown")).strip()
@@ -371,28 +368,37 @@ def download_clips(clips):
             game_id = clip.get("game_id", "0")
             game_name = re.sub(r"[^\w\s]", "", get_game_name(game_id)).strip()  # Fetch the game name
 
-            # Check if essential data is present
             if not clip_url or not clip_date:
                 print(f"Skipping clip with missing data: {clip}")
                 continue
 
             # Define the file name
             file_name = f"{game_name}{spacer}{clip_title}{spacer}{clip_creator}.mp4"
+            file_path = os.path.join(dl_folder, file_name)
 
+            # Skip download if file already exists
+            if os.path.exists(file_path):
+                print(f"Skipping download, file already exists: {file_name}")
+                downloaded_clips.append(file_path)
+                continue
             print(f"Downloading clip: {clip_url} as {file_name}")
 
             # Options for yt-dlp
             ydl_opts = {
-                "outtmpl": os.path.join(dl_folder, file_name),  # File name template
+                "outtmpl": file_path,  # File name template
                 "quiet": True,         # Minimal output
-                # "format": "best",      # Best available quality
             }
 
-            # Execute yt-dlp download
             with YoutubeDL(ydl_opts) as ydl:
                 ydl.download([clip_url])
+
+            downloaded_clips.append(file_path)  # Add the file path to the list
+
         except Exception as e:
             print(f"Error downloading {clip_url}: {e}")
+
+    return downloaded_clips
+
 
 def main():
     """Main program."""
@@ -411,7 +417,7 @@ def main():
     # Check if token is valid, renew if necessary
     if not is_token_valid():
         print("Token is invalid or expired. Renewing token...")
-        renew_token()
+        manage_twitch_oauth_token()
 
     print()  # empty line
     user_name = get_channel_name()
@@ -426,8 +432,43 @@ def main():
         return
 
     print(f"{len(clips)} clips found. Starting download...")
-    download_clips(clips)
+    downloaded_clips = download_clips(clips)
     print("All clips have been downloaded.")
+
+    if downloaded_clips:
+        open_vlc = input("Would you like to open the downloaded clips in VLC? (y/n): ").strip().lower()
+        if open_vlc == 'y':
+            # Determine the platform
+            current_platform = platform.system()
+
+            # Command to launch VLC
+            try:
+                if current_platform == "Windows":
+                    # Windows-specific VLC command
+                    vlc_command = [r"C:\Program Files\VideoLAN\VLC\vlc.exe", *downloaded_clips]
+                elif current_platform in ("Linux", "Darwin"):  # Darwin is macOS
+                    # Linux/macOS-specific VLC command
+                    vlc_command = ["vlc", *downloaded_clips]
+                else:
+                    raise OSError(f"Unsupported platform: {current_platform}")
+
+                # Check if VLC is installed and accessible
+                if not shutil.which(vlc_command[0]):
+                    raise FileNotFoundError(f"{vlc_command[0]} is not installed or not in the PATH.")
+
+                # Launch VLC
+                subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                print("VLC launched successfully.")
+            except FileNotFoundError as fnf_error:
+                print(f"Error: {fnf_error}")
+            except OSError as os_error:
+                print(f"Error: {os_error}")
+            except Exception as ex:
+                print(f"An unexpected error occurred: {ex}")
+        else:
+            print("VLC will not be opened.")
+    else:
+        print("No clips available to play.")
 
 if __name__ == "__main__":
     main()
