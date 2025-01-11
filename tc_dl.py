@@ -68,7 +68,7 @@ def load_config():
     else:
         print(f"No configuration file found. Starting with an empty configuration.")
         config = {}
-        get_defaults()
+        input_defaults()
 
 def get_downloads_path():
     if platform.system() == "Windows":
@@ -79,7 +79,7 @@ def get_downloads_path():
         downloads_path = os.path.join(os.environ['HOME'], 'Downloads')
     return downloads_path
 
-def get_defaults():
+def input_defaults():
     """Prompt the user for configuration values and save them to config.json."""
     user_config = get_user_config()
     old_default_user_name = user_config["default_user_name"]
@@ -252,7 +252,7 @@ def get_auth_config():
         "expires_at": auth_config.get("expires_at", "")
     }
 
-def get_channel_name():
+def input_channel_name():
     """Prompt for the Twitch channel name."""
     user_config = get_user_config()
     default_user_name = user_config["default_user_name"]
@@ -280,7 +280,7 @@ def get_broadcaster_id(user_name):
         print(f"Error fetching broadcaster ID for user {user_name}: {e}")
         return None
 
-def get_time_range():
+def input_time_range():
     """Prompt for the time range for clips."""
     start_date = input("Please enter the start date for the clips (YYYY-MM-DD): ").strip()
     end_date = input("Please enter the end date for the clips (YYYY-MM-DD): ").strip()
@@ -417,7 +417,7 @@ def open_clips_in_vlc(clips):
         print("No clips available to play.")
         return
 
-    open_vlc = input("Would you like to open the downloaded clips in VLC? (y/n): ").strip().lower()
+    open_vlc = input("Would you like to open the downloaded clips in VLC? (y/N): ").strip().lower() or "n"
     if open_vlc != 'y':
         print("VLC will not be opened.")
         return
@@ -461,7 +461,7 @@ def main():
 
     if args.c:
         # Run configuration prompt
-        get_defaults()
+        input_defaults()
         return
 
     # Check if token is valid, renew if necessary
@@ -472,9 +472,9 @@ def main():
     print()  # empty line
 
     # Get information to download clips
-    user_name = get_channel_name()
+    user_name = input_channel_name()
     broadcaster_id = get_broadcaster_id(user_name)
-    start_timestamp, end_timestamp = get_time_range()
+    start_timestamp, end_timestamp = input_time_range()
 
     print(f"Fetching clips for channel: {user_name}")
     clips = get_clips(broadcaster_id, start_timestamp, end_timestamp)
