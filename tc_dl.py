@@ -408,6 +408,50 @@ def download_clips(clips):
 
     return downloaded_clips
 
+def open_clips_in_vlc(clips):
+    """
+    Open a list of video clips in VLC media player.
+
+    Args:
+        clips (list): A list of file paths to open in VLC.
+    """
+    if not clips:
+        print("No clips available to play.")
+        return
+
+    open_vlc = input("Would you like to open the downloaded clips in VLC? (y/n): ").strip().lower()
+    if open_vlc != 'y':
+        print("VLC will not be opened.")
+        return
+
+    # Determine the platform
+    current_platform = platform.system()
+
+    # Command to launch VLC
+    try:
+        if current_platform == "Windows":
+            # Windows-specific VLC command
+            vlc_command = [r"C:\Program Files\VideoLAN\VLC\vlc.exe", *clips]
+        elif current_platform in ("Linux", "Darwin"):  # Darwin is macOS
+            # Linux/macOS-specific VLC command
+            vlc_command = ["vlc", *clips]
+        else:
+            raise OSError(f"Unsupported platform: {current_platform}")
+
+        # Check if VLC is installed and accessible
+        if not shutil.which(vlc_command[0]):
+            raise FileNotFoundError(f"{vlc_command[0]} is not installed or not in the PATH.")
+
+        # Launch VLC
+        subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        print("VLC launched successfully.")
+    except FileNotFoundError as fnf_error:
+        print(f"Error: {fnf_error}")
+    except OSError as os_error:
+        print(f"Error: {os_error}")
+    except Exception as ex:
+        print(f"An unexpected error occurred: {ex}")
+
 
 def main():
     """Main program."""
@@ -429,6 +473,8 @@ def main():
         manage_twitch_oauth_token()
 
     print()  # empty line
+
+    # Get information to download clips
     user_name = get_channel_name()
     broadcaster_id = get_broadcaster_id(user_name)
     start_timestamp, end_timestamp = get_time_range()
@@ -444,40 +490,9 @@ def main():
     downloaded_clips = download_clips(clips)
     print("All clips have been downloaded.")
 
+    # Launch VLC with the downloaded clips
     if downloaded_clips:
-        open_vlc = input("Would you like to open the downloaded clips in VLC? (y/n): ").strip().lower()
-        if open_vlc == 'y':
-            # Determine the platform
-            current_platform = platform.system()
-
-            # Command to launch VLC
-            try:
-                if current_platform == "Windows":
-                    # Windows-specific VLC command
-                    vlc_command = [r"C:\Program Files\VideoLAN\VLC\vlc.exe", *downloaded_clips]
-                elif current_platform in ("Linux", "Darwin"):  # Darwin is macOS
-                    # Linux/macOS-specific VLC command
-                    vlc_command = ["vlc", *downloaded_clips]
-                else:
-                    raise OSError(f"Unsupported platform: {current_platform}")
-
-                # Check if VLC is installed and accessible
-                if not shutil.which(vlc_command[0]):
-                    raise FileNotFoundError(f"{vlc_command[0]} is not installed or not in the PATH.")
-
-                # Launch VLC
-                subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-                print("VLC launched successfully.")
-            except FileNotFoundError as fnf_error:
-                print(f"Error: {fnf_error}")
-            except OSError as os_error:
-                print(f"Error: {os_error}")
-            except Exception as ex:
-                print(f"An unexpected error occurred: {ex}")
-        else:
-            print("VLC will not be opened.")
-    else:
-        print("No clips available to play.")
+        open_clips_in_vlc(downloaded_clips)
 
 if __name__ == "__main__":
     main()
