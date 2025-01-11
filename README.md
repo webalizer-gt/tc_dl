@@ -45,6 +45,7 @@ Alternatively, you can edit the config.json file directly.
 3. Enter the date FROM which clips should be loaded
 4. Enter the date UNTIL which clips should be loaded
 5. Clips are being downloaded.
+6. Choose if you want to open the downloaded clips in VLC-Player. Pressing `Enter` defaults to "No".
 
 # Instructions: Create Twitch Client-ID, Client-Secret and OAuth-Token
 
