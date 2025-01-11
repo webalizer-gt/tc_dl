@@ -43,7 +43,7 @@ config = {}  # Global configuration variable
 USER_API_URL = "https://api.twitch.tv/helix/users"
 CLIPS_API_URL = "https://api.twitch.tv/helix/clips"
 GAME_API_URL = "https://api.twitch.tv/helix/games"
-LIMIT = 100  # Max clips per request
+LIMIT = 10  # Max clips per request
 
 def get_downloads_path():
     if platform.system() == "Windows":

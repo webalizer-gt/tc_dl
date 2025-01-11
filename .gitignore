@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 config.json
+vlc_tc_dl.py
