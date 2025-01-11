@@ -23,15 +23,17 @@ pip install requests yt-dlp
 
 ## Configure the script
 
-1. Run the script `tc_dl.py` with the option -c. You can do by using the command line:
+1. When the script is run for the first time or no configuration file is found, it automatically starts in configuration mode. If you want to make changes later, you can start it with the -c option:
    ```bash
    C:\Directory\>python tc_dl.py -c
    ```
 2. Enter a default channel name you want to downloads clips from.
 3. Enter a download folder eg. `C:\Username\TwitchClips`
-4. Enter a spacer combination that separates information in you filenames
+4. Enter a spacer combination that separates information in your filenames
 5. Enter Twitch Client-ID -> see instructions below how to get this
 6. Enter Twitch Secret -> see instructions below how to get this
+
+Alternatively, you can edit the config.json file directly.
 
 ## Instructions: Download clips
 
