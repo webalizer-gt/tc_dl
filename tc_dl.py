@@ -120,8 +120,13 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
 
             print(f"Token generated. New access token: {access_token}, expires at: {formatted_date}")
 
-            # Save the token data to the configuration
-            save_auth_config(client_id, client_secret, access_token, formatted_date)
+            # Save auth configuration
+            save_config_section("auth", {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "access_token": access_token,
+                "expires_at": formatted_date
+            })
             return token_data
 
     except requests.exceptions.RequestException as e:
@@ -141,7 +146,7 @@ def load_config():
     else:
         print(f"No configuration file found. Starting with an empty configuration.")
         config = {}
-        save_defaults()
+        get_defaults()
 
 def get_user_config():
     """Extract user configuration from the loaded config."""
@@ -162,7 +167,7 @@ def get_auth_config():
         "expires_at": auth_config.get("expires_at", "")
     }
 
-def save_defaults():
+def get_defaults():
     """Prompt the user for configuration values and save them to config.json."""
     user_config = get_user_config()
     old_default_user_name = user_config["default_user_name"]
@@ -185,6 +190,21 @@ def save_defaults():
     else:
         spacer = input(f"Enter the spacer to use in file names or press Enter to keep '{old_spacer}': ") or old_spacer
 
+    # Validate inputs
+    if not dl_folder:
+        print("Error: dl_folder cannot be empty.")
+        return
+    if not spacer:
+        print("Error: spacer cannot be empty.")
+        return
+
+    # Save user configuration
+    save_config_section("user", {
+        "default_user_name": default_user_name,
+        "dl_folder": dl_folder,
+        "spacer": spacer
+    })
+
     # Prompt for Client ID and Client Secret
     auth_config = get_auth_config()
     old_client_id = auth_config["client_id"]
@@ -203,12 +223,6 @@ def save_defaults():
         client_secret = input(f"Enter the Client Secret or press Enter to keep {old_client_secret}: ").strip() or old_client_secret
 
     # Validate inputs
-    if not dl_folder:
-        print("Error: dl_folder cannot be empty.")
-        return
-    if not spacer:
-        print("Error: spacer cannot be empty.")
-        return
     if not client_id:
         print("Error: client_id cannot be empty.")
         return
@@ -216,37 +230,32 @@ def save_defaults():
         print("Error: client_secret cannot be empty.")
         return
 
-    # Update the "user" and "auth" sections
-    config["user"] = {
-        "default_user_name": default_user_name,
-        "dl_folder": dl_folder,
-        "spacer": spacer,
-    }
-    config["auth"] = {
+    # Save auth configuration
+    save_config_section("auth", {
         "client_id": client_id,
         "client_secret": client_secret,
-        "access_token": old_access_token,
-        "expires_at": old_expires_at,
-    }
+        "access_token": auth_config.get("oauth_token", ""),
+        "expires_at": auth_config.get("expires_at", "")
+    })
 
-    with open(CONFIG_FILE, "w") as file:
-        json.dump(config, file, indent=4)
-    print(f"Configuration saved to {CONFIG_FILE}.")
-
-def save_auth_config(client_id, client_secret, access_token, expires_at):
-    """Save authentication configuration to config.json."""
+def save_config_section(section, data):
+    """
+    Save updates to a specific section of the configuration dictionary.
     
-    # Update only the "auth" section
-    config["auth"] = {
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "access_token": access_token,
-        "expires_at": expires_at,
-    }
+    Args:
+        section (str): The section of the config to update (e.g., "user" or "auth").
+        data (dict): The new data to save in the specified section.
+    """
+    if section not in config:
+        config[section] = {}
 
+    # Update the section with new data
+    config[section].update(data)
+
+    # Save to the config file
     with open(CONFIG_FILE, "w") as file:
         json.dump(config, file, indent=4)
-    print(f"Authentication configuration saved to {CONFIG_FILE}.")
+    print(f"{section.capitalize()} configuration saved to {CONFIG_FILE}.")
 
 def is_token_valid():
     auth = config.get("auth", {})
@@ -411,7 +420,7 @@ def main():
 
     if args.c:
         # Run configuration prompt
-        save_defaults()
+        get_defaults()
         return
 
     # Check if token is valid, renew if necessary
