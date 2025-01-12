@@ -380,7 +380,7 @@ def download_clips(clips):
                 continue
 
             # Define the file name
-            file_name = f"{game_name}{spacer}{clip_title}{spacer}{clip_creator}.mp4"
+            file_name = f"{clip_date}{spacer}{game_name}{spacer}{clip_title}{spacer}{clip_creator}.mp4"
             file_path = os.path.join(dl_folder, file_name)
 
             # Skip download if file already exists
