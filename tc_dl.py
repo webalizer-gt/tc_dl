@@ -329,7 +329,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
         except requests.exceptions.RequestException as e:
             print(f"Error fetching clips: {e}")
             break
-
+    clips.sort(key=lambda x: x["created_at"])
     return clips
 
 def get_game_name(game_id):
