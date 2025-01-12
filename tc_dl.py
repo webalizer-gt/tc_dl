@@ -39,7 +39,10 @@ import shutil
 
 # Default values
 CONFIG_FILE = "config.json"
-config = {}  # Global configuration variable
+# Global configuration variable
+config = {} 
+# In-memory cache for game names
+game_cache = {}
 
 # Twitch API URLs
 USER_API_URL = "https://api.twitch.tv/helix/users"
@@ -334,7 +337,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
 
 def get_game_name(game_id):
     """
-    Fetch the name of a game based on its game_id.
+    Fetch the name of a game based on its game_id, with in-memory caching.
     
     Args:
         game_id (str): The ID of the game.
@@ -342,6 +345,12 @@ def get_game_name(game_id):
     Returns:
         str: The name of the game or "Unknown" if an error occurs.
     """
+    # Check the cache first
+    if game_id in game_cache:
+        # print(f"Found game_id {game_id} in game_cache. Return {game_cache[game_id]}")
+        return game_cache[game_id]
+
+    # If not in cache, fetch from API
     auth_config = get_auth_config()
     headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
     params = {"id": game_id}
@@ -351,7 +360,10 @@ def get_game_name(game_id):
         response.raise_for_status()
         data = response.json()
         if "data" in data and len(data["data"]) > 0:
-            return data["data"][0]["name"]  # The name of the game
+            game_name = data["data"][0]["name"]
+            game_cache[game_id] = game_name  # Save to in-memory cache
+            # print(f"Saved game_name {game_name} in game_cache.")
+            return game_name
     except requests.exceptions.RequestException as e:
         print(f"Error fetching game name for game_id {game_id}: {e}")
     
