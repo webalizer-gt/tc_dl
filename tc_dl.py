@@ -17,7 +17,7 @@ def check_dependencies():
 
     # If any dependencies are missing, notify the user and exit
     if missing_dependencies:
-        print(f"Error: The following dependencies are missing: {', '.join(missing_dependencies)}")
+        print(f"\033[91mError: The following dependencies are missing: {', '.join(missing_dependencies)}\033[0m")
         print("Please install them using:")
         print("    pip install " + " ".join(missing_dependencies))
         exit(1)
@@ -67,13 +67,14 @@ def load_config():
             try:
                 config = json.load(file)
             except json.JSONDecodeError:
-                print(f"Error reading {CONFIG_FILE}. Starting with an empty configuration.")
+                print(f"\033[91mError: Unable to read {CONFIG_FILE}. Starting with an empty configuration.\033[0m")
     else:
-        print(f"No configuration file found. Starting with an empty configuration.")
+        print(f"\033[93mWarning: No configuration file found. Starting with an empty configuration.\033[0m")
         config = {}
         input_defaults()
 
 def get_downloads_path():
+    """Get the default downloads path based on the operating system."""
     if platform.system() == "Windows":
         # For Windows, use the `USERPROFILE` environment variable
         downloads_path = os.path.join(os.environ['USERPROFILE'], 'Downloads')
@@ -89,28 +90,20 @@ def input_defaults():
     old_dl_folder = user_config["dl_folder"]
     old_spacer = user_config["spacer"]
 
-    if not old_default_user_name:
-        default_user_name = input(f"Enter the default Twitch-User: ").strip()
-    else:
-        default_user_name = input(f"Enter the default Twitch-User or press Enter to keep '{old_default_user_name}': ").strip() or old_default_user_name
-
-    if not old_dl_folder:
-        downloads_path = get_downloads_path()
-        dl_folder = input(f"Enter the download folder path or press Enter to use '{downloads_path}': ").strip() or downloads_path
-    else:
-        dl_folder = input(f"Enter the download folder path or press Enter to keep '{old_dl_folder}': ").strip() or old_dl_folder
-    
-    if not old_spacer:
-        spacer = input(f"Enter the spacer to use in file names: ")
-    else:
-        spacer = input(f"Enter the spacer to use in file names or press Enter to keep '{old_spacer}': ") or old_spacer
+    # Prompt for default Twitch user name
+    default_user_name = input(f"Enter the default Twitch-User{' or press Enter to keep ' + old_default_user_name if old_default_user_name else ''}: ").strip() or old_default_user_name
+    downloads_path = get_downloads_path()
+    # Prompt for download folder path
+    dl_folder = input(f"Enter the download folder path{' or press Enter to keep ' + old_dl_folder if old_dl_folder else ' or press Enter to use ' + downloads_path}: ").strip() or old_dl_folder or downloads_path
+    # Prompt for spacer to use in file names
+    spacer = input(f"Enter the spacer to use in file names{' or press Enter to keep ' + old_spacer if old_spacer else ''}: ") or old_spacer
 
     # Validate inputs
     if not dl_folder:
-        print("Error: dl_folder cannot be empty.")
+        print("\033[91mError: The download folder path cannot be empty.\033[0m")
         return
     if not spacer:
-        print("Error: spacer cannot be empty.")
+        print("\033[91mError: The spacer cannot be empty.\033[0m")
         return
 
     # Save user configuration
@@ -124,43 +117,43 @@ def input_defaults():
     auth_config = get_auth_config()
     old_client_id = auth_config["client_id"]
     old_client_secret = auth_config["client_secret"]
-    old_access_token = auth_config["oauth_token"]
-    old_expires_at = auth_config["expires_at"] 
 
-    if not old_client_id:
-        client_id = input(f"Enter the Client ID: ").strip()
-    else:
-        client_id = input(f"Enter the Client ID or press Enter to keep {old_client_id}: ").strip() or old_client_id
-
-    if not old_client_secret:
-        client_secret = input(f"Enter the Client Secret: ").strip()
-    else:
-        client_secret = input(f"Enter the Client Secret or press Enter to keep {old_client_secret}: ").strip() or old_client_secret
+    client_id = input(f"Enter the Client ID{' or press Enter to keep ' + old_client_id if old_client_id else ''}: ").strip() or old_client_id
+    client_secret = input(f"Enter the Client Secret{' or press Enter to keep ' + old_client_secret if old_client_secret else ''}: ").strip() or old_client_secret
 
     # Validate inputs
     if not client_id:
-        print("Error: client_id cannot be empty.")
+        print("\033[91mError: The Client ID cannot be empty.\033[0m")
         return
     if not client_secret:
-        print("Error: client_secret cannot be empty.")
+        print("\033[91mError: The Client Secret cannot be empty.\033[0m")
         return
 
     # Save auth configuration
     save_config_section("auth", {
         "client_id": client_id,
         "client_secret": client_secret,
-        "access_token": auth_config.get("oauth_token", ""),
+        "access_token": auth_config.get("access_token", ""),
         "expires_at": auth_config.get("expires_at", "")
     })
 
 def is_token_valid():
+    """Check if the current OAuth token is still valid."""
     auth = config.get("auth", {})
     if "access_token" in auth and auth["access_token"] and "expires_at" in auth:
         try:
             expires_at = datetime.strptime(auth["expires_at"], "%Y-%m-%d %H:%M:%S")
-            return datetime.now() < expires_at
+            if datetime.now() < expires_at:
+                # Verify token with Twitch API
+                headers = {"Authorization": f"Bearer {auth['access_token']}"}
+                response = requests.get("https://id.twitch.tv/oauth2/validate", headers=headers)
+                if response.status_code == 200:
+                    return True
+                else:
+                    print("\033[93mInfo: Token is invalid or expired according to Twitch API.\033[0m")
+                    return False
         except ValueError:
-            print("Invalid date format in expires_at.")
+            print("\033[91mError: Invalid date format in expires_at.\033[0m")
             return False
     return False
 
@@ -181,7 +174,7 @@ def save_config_section(section, data):
     # Save to the config file
     with open(CONFIG_FILE, "w") as file:
         json.dump(config, file, indent=4)
-    print(f"{section.capitalize()} configuration saved to {CONFIG_FILE}.")
+    print(f"\033[93m{section.capitalize()} configuration saved to {CONFIG_FILE}.\033[0m")
 
 def manage_twitch_oauth_token(client_id=None, client_secret=None):
     """
@@ -199,7 +192,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
     client_secret = client_secret or auth.get("client_secret")
 
     if not client_id or not client_secret:
-        print("Client ID or Client Secret not provided.")
+        print("\033[91mError: Client ID or Client Secret not provided.\033[0m")
         return None
 
     url = "https://id.twitch.tv/oauth2/token"
@@ -220,7 +213,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             expiration_date = datetime.now() + timedelta(seconds=expires_in)
             formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
 
-            print(f"Token generated. New access token: {access_token}, expires at: {formatted_date}")
+            print(f"\033[93mToken generated successfully. New access token: {access_token}, expires at: {formatted_date}\033[0m")
 
             # Save auth configuration
             save_config_section("auth", {
@@ -232,7 +225,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             return token_data
 
     except requests.exceptions.RequestException as e:
-        print(f"Error generating token: {e}")
+        print(f"\033[91mError: Failed to generate token. {e}\033[0m")
 
     return None
 
@@ -251,7 +244,7 @@ def get_auth_config():
     return {
         "client_id": auth_config.get("client_id", ""),
         "client_secret": auth_config.get("client_secret", ""),
-        "oauth_token": auth_config.get("access_token", ""),
+        "access_token": auth_config.get("access_token", ""),
         "expires_at": auth_config.get("expires_at", "")
     }
 
@@ -266,7 +259,7 @@ def input_channel_name():
 def get_broadcaster_id(user_name):
     """Get the broadcaster ID based on the channel name."""
     auth_config = get_auth_config()
-    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
+    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['access_token']}"}
     params = {"login": user_name}
     
     try:
@@ -275,12 +268,12 @@ def get_broadcaster_id(user_name):
         data = response.json()
         
         if not data.get("data"):
-            print(f"Error: User {user_name} not found.")
+            print(f"\033[91mError: User '{user_name}' not found.\033[0m")
             return None
         
         return data["data"][0]["id"]
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching broadcaster ID for user {user_name}: {e}")
+        print(f"\033[91mError: Failed to fetch broadcaster ID for user '{user_name}'. {e}\033[0m")
         return None
 
 def input_time_range():
@@ -294,11 +287,11 @@ def input_time_range():
         start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
         end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
     except ValueError:
-        print("Invalid date format. Please use YYYY-MM-DD.")
+        print("\033[91mError: Invalid date format. Please use YYYY-MM-DD.\033[0m")
         exit(1)
 
     if start_timestamp > end_timestamp:
-        print("Error: Start date is after the end date.")
+        print("\033[91mError: Start date cannot be after the end date.\033[0m")
         exit(1)
 
     return start_timestamp, end_timestamp
@@ -306,7 +299,7 @@ def input_time_range():
 def get_clips(broadcaster_id, start_timestamp, end_timestamp):
     """Fetch clips from the Twitch API."""
     auth_config = get_auth_config()
-    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
+    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['access_token']}"}
     params = {
         "broadcaster_id": broadcaster_id,
         "first": LIMIT,
@@ -330,7 +323,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
             if not cursor:
                 break
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching clips: {e}")
+            print(f"\033[91mError: Failed to fetch clips. {e}\033[0m")
             break
     clips.sort(key=lambda x: x["created_at"])
     return clips
@@ -347,12 +340,11 @@ def get_game_name(game_id):
     """
     # Check the cache first
     if game_id in game_cache:
-        # print(f"Found game_id {game_id} in game_cache. Return {game_cache[game_id]}")
         return game_cache[game_id]
 
     # If not in cache, fetch from API
     auth_config = get_auth_config()
-    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['oauth_token']}"}
+    headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['access_token']}"}
     params = {"id": game_id}
 
     try:
@@ -362,10 +354,9 @@ def get_game_name(game_id):
         if "data" in data and len(data["data"]) > 0:
             game_name = data["data"][0]["name"]
             game_cache[game_id] = game_name  # Save to in-memory cache
-            # print(f"Saved game_name {game_name} in game_cache.")
             return game_name
     except requests.exceptions.RequestException as e:
-        print(f"Error fetching game name for game_id {game_id}: {e}")
+        print(f"\033[91mError: Failed to fetch game name for game_id {game_id}. {e}\033[0m")
     
     return "Unknown"
 
@@ -388,7 +379,7 @@ def download_clips(clips):
             game_name = re.sub(r"[^\w\s]", "", get_game_name(game_id)).strip()  # Fetch the game name
 
             if not clip_url or not clip_date:
-                print(f"Skipping clip with missing data: {clip}")
+                print(f"\033[93mWarning: Skipping clip with missing data: {clip}\033[0m")
                 continue
 
             # Define the file name
@@ -397,7 +388,7 @@ def download_clips(clips):
 
             # Skip download if file already exists
             if os.path.exists(file_path):
-                print(f"Skipping download, file already exists: {file_name}")
+                print(f"\033[93mInfo: Skipping download, file already exists: {file_name}\033[0m")
                 downloaded_clips.append(file_path)
                 continue
             print(f"Downloading clip: {clip_url} as {file_name}")
@@ -414,7 +405,7 @@ def download_clips(clips):
             downloaded_clips.append(file_path)  # Add the file path to the list
 
         except Exception as e:
-            print(f"Error downloading {clip_url}: {e}")
+            print(f"\033[91mError: Failed to download {clip_url}. {e}\033[0m")
 
     return downloaded_clips
 
@@ -426,12 +417,12 @@ def open_clips_in_vlc(clips):
         clips (list): A list of file paths to open in VLC.
     """
     if not clips:
-        print("No clips available to play.")
+        print("\033[93mInfo: No clips available to play.\033[0m")
         return
 
     open_vlc = input("Would you like to open the downloaded clips in VLC? (y/N): ").strip().lower() or "n"
     if open_vlc != 'y':
-        print("VLC will not be opened.")
+        print("\033[93mInfo: VLC will not be opened.\033[0m")
         return
 
     # Determine the platform
@@ -446,21 +437,21 @@ def open_clips_in_vlc(clips):
             # Linux/macOS-specific VLC command
             vlc_command = ["vlc", *clips]
         else:
-            raise OSError(f"Unsupported platform: {current_platform}")
+            raise OSError(f"\033[91mError: Unsupported platform: {current_platform}\033[0m")
 
         # Check if VLC is installed and accessible
         if not shutil.which(vlc_command[0]):
-            raise FileNotFoundError(f"{vlc_command[0]} is not installed or not in the PATH.")
+            raise FileNotFoundError(f"\033[91mError: {vlc_command[0]} is not installed or not in the PATH.\033[0m")
 
         # Launch VLC
         subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        print("VLC launched successfully.")
+        print("\033[93mInfo: VLC launched successfully.\033[0m")
     except FileNotFoundError as fnf_error:
-        print(f"Error: {fnf_error}")
+        print(f"\033[91mError: {fnf_error}\033[0m")
     except OSError as os_error:
-        print(f"Error: {os_error}")
+        print(f"\033[91mError: {os_error}\033[0m")
     except Exception as ex:
-        print(f"An unexpected error occurred: {ex}")
+        print(f"\033[91mError: An unexpected error occurred: {ex}\033[0m")
 
 def main():
     """Main program."""
@@ -478,7 +469,7 @@ def main():
 
     # Check if token is valid, renew if necessary
     if not is_token_valid():
-        print("Token is invalid or expired. Renewing token...")
+        print("\033[93mInfo: Token is invalid or expired. Renewing token...\033[0m")
         manage_twitch_oauth_token()
 
     print()  # empty line
@@ -492,12 +483,12 @@ def main():
     clips = get_clips(broadcaster_id, start_timestamp, end_timestamp)
 
     if not clips:
-        print("No clips found.")
+        print("\033[93mInfo: No clips found.\033[0m")
         return
 
-    print(f"{len(clips)} clips found. Starting download...")
+    print(f"\033[93mInfo: {len(clips)} clips found. Starting download...\033[0m")
     downloaded_clips = download_clips(clips)
-    print("All clips have been downloaded.")
+    print("\033[93mInfo: All clips have been downloaded.\033[0m")
 
     # Launch VLC with the downloaded clips
     if downloaded_clips:
