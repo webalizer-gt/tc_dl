@@ -17,7 +17,7 @@ def check_dependencies():
 
     # If any dependencies are missing, notify the user and exit
     if missing_dependencies:
-        print(f"\033[91mError: The following dependencies are missing: {', '.join(missing_dependencies)}\033[0m")
+        print(f"Error: The following dependencies are missing: {', '.join(missing_dependencies)}")
         print("Please install them using:")
         print("    pip install " + " ".join(missing_dependencies))
         exit(1)
@@ -67,9 +67,9 @@ def load_config():
             try:
                 config = json.load(file)
             except json.JSONDecodeError:
-                print(f"\033[91mError: Unable to read {CONFIG_FILE}. Starting with an empty configuration.\033[0m")
+                print(f"Error: Unable to read {CONFIG_FILE}. Starting with an empty configuration.")
     else:
-        print(f"\033[93mWarning: No configuration file found. Starting with an empty configuration.\033[0m")
+        print(f"Warning: No configuration file found. Starting with an empty configuration.")
         config = {}
         input_defaults()
 
@@ -100,10 +100,10 @@ def input_defaults():
 
     # Validate inputs
     if not dl_folder:
-        print("\033[91mError: The download folder path cannot be empty.\033[0m")
+        print("Error: The download folder path cannot be empty.")
         return
     if not spacer:
-        print("\033[91mError: The spacer cannot be empty.\033[0m")
+        print("Error: The spacer cannot be empty.")
         return
 
     # Save user configuration
@@ -123,10 +123,10 @@ def input_defaults():
 
     # Validate inputs
     if not client_id:
-        print("\033[91mError: The Client ID cannot be empty.\033[0m")
+        print("Error: The Client ID cannot be empty.")
         return
     if not client_secret:
-        print("\033[91mError: The Client Secret cannot be empty.\033[0m")
+        print("Error: The Client Secret cannot be empty.")
         return
 
     # Save auth configuration
@@ -150,10 +150,10 @@ def is_token_valid():
                 if response.status_code == 200:
                     return True
                 else:
-                    print("\033[93mInfo: Token is invalid or expired according to Twitch API.\033[0m")
+                    print("Info: Token is invalid or expired according to Twitch API.")
                     return False
         except ValueError:
-            print("\033[91mError: Invalid date format in expires_at.\033[0m")
+            print("Error: Invalid date format in expires_at.")
             return False
     return False
 
@@ -174,7 +174,7 @@ def save_config_section(section, data):
     # Save to the config file
     with open(CONFIG_FILE, "w") as file:
         json.dump(config, file, indent=4)
-    print(f"\033[93m{section.capitalize()} configuration saved to {CONFIG_FILE}.\033[0m")
+    print(f"{section.capitalize()} configuration saved to {CONFIG_FILE}.")
 
 def manage_twitch_oauth_token(client_id=None, client_secret=None):
     """
@@ -192,7 +192,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
     client_secret = client_secret or auth.get("client_secret")
 
     if not client_id or not client_secret:
-        print("\033[91mError: Client ID or Client Secret not provided.\033[0m")
+        print("Error: Client ID or Client Secret not provided.")
         return None
 
     url = "https://id.twitch.tv/oauth2/token"
@@ -213,7 +213,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             expiration_date = datetime.now() + timedelta(seconds=expires_in)
             formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
 
-            print(f"\033[93mToken generated successfully. New access token: {access_token}, expires at: {formatted_date}\033[0m")
+            print(f"Token generated successfully. New access token: {access_token}, expires at: {formatted_date}")
 
             # Save auth configuration
             save_config_section("auth", {
@@ -225,7 +225,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             return token_data
 
     except requests.exceptions.RequestException as e:
-        print(f"\033[91mError: Failed to generate token. {e}\033[0m")
+        print(f"Error: Failed to generate token. {e}")
 
     return None
 
@@ -268,12 +268,12 @@ def get_broadcaster_id(user_name):
         data = response.json()
         
         if not data.get("data"):
-            print(f"\033[91mError: User '{user_name}' not found.\033[0m")
+            print(f"Error: User '{user_name}' not found.")
             return None
         
         return data["data"][0]["id"]
     except requests.exceptions.RequestException as e:
-        print(f"\033[91mError: Failed to fetch broadcaster ID for user '{user_name}'. {e}\033[0m")
+        print(f"Error: Failed to fetch broadcaster ID for user '{user_name}'. {e}")
         return None
 
 def input_time_range():
@@ -287,11 +287,11 @@ def input_time_range():
         start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
         end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
     except ValueError:
-        print("\033[91mError: Invalid date format. Please use YYYY-MM-DD.\033[0m")
+        print("Error: Invalid date format. Please use YYYY-MM-DD.")
         exit(1)
 
     if start_timestamp > end_timestamp:
-        print("\033[91mError: Start date cannot be after the end date.\033[0m")
+        print("Error: Start date cannot be after the end date.")
         exit(1)
 
     return start_timestamp, end_timestamp
@@ -323,7 +323,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
             if not cursor:
                 break
         except requests.exceptions.RequestException as e:
-            print(f"\033[91mError: Failed to fetch clips. {e}\033[0m")
+            print(f"Error: Failed to fetch clips. {e}")
             break
     clips.sort(key=lambda x: x["created_at"])
     return clips
@@ -356,7 +356,7 @@ def get_game_name(game_id):
             game_cache[game_id] = game_name  # Save to in-memory cache
             return game_name
     except requests.exceptions.RequestException as e:
-        print(f"\033[91mError: Failed to fetch game name for game_id {game_id}. {e}\033[0m")
+        print(f"Error: Failed to fetch game name for game_id {game_id}. {e}")
     
     return "Unknown"
 
@@ -379,7 +379,7 @@ def download_clips(clips):
             game_name = re.sub(r"[^\w\s]", "", get_game_name(game_id)).strip()  # Fetch the game name
 
             if not clip_url or not clip_date:
-                print(f"\033[93mWarning: Skipping clip with missing data: {clip}\033[0m")
+                print(f"Warning: Skipping clip with missing data: {clip}")
                 continue
 
             # Define the file name
@@ -388,7 +388,7 @@ def download_clips(clips):
 
             # Skip download if file already exists
             if os.path.exists(file_path):
-                print(f"\033[93mInfo: Skipping download, file already exists: {file_name}\033[0m")
+                print(f"Info: Skipping download, file already exists: {file_name}")
                 downloaded_clips.append(file_path)
                 continue
             print(f"Downloading clip: {clip_url} as {file_name}")
@@ -405,7 +405,7 @@ def download_clips(clips):
             downloaded_clips.append(file_path)  # Add the file path to the list
 
         except Exception as e:
-            print(f"\033[91mError: Failed to download {clip_url}. {e}\033[0m")
+            print(f"Error: Failed to download {clip_url}. {e}")
 
     return downloaded_clips
 
@@ -417,12 +417,12 @@ def open_clips_in_vlc(clips):
         clips (list): A list of file paths to open in VLC.
     """
     if not clips:
-        print("\033[93mInfo: No clips available to play.\033[0m")
+        print("Info: No clips available to play.")
         return
 
     open_vlc = input("Would you like to open the downloaded clips in VLC? (y/N): ").strip().lower() or "n"
     if open_vlc != 'y':
-        print("\033[93mInfo: VLC will not be opened.\033[0m")
+        print("Info: VLC will not be opened.")
         return
 
     # Determine the platform
@@ -437,21 +437,21 @@ def open_clips_in_vlc(clips):
             # Linux/macOS-specific VLC command
             vlc_command = ["vlc", *clips]
         else:
-            raise OSError(f"\033[91mError: Unsupported platform: {current_platform}\033[0m")
+            raise OSError(f"Error: Unsupported platform: {current_platform}")
 
         # Check if VLC is installed and accessible
         if not shutil.which(vlc_command[0]):
-            raise FileNotFoundError(f"\033[91mError: {vlc_command[0]} is not installed or not in the PATH.\033[0m")
+            raise FileNotFoundError(f"Error: {vlc_command[0]} is not installed or not in the PATH.")
 
         # Launch VLC
         subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        print("\033[93mInfo: VLC launched successfully.\033[0m")
+        print("Info: VLC launched successfully.")
     except FileNotFoundError as fnf_error:
-        print(f"\033[91mError: {fnf_error}\033[0m")
+        print(f"Error: {fnf_error}")
     except OSError as os_error:
-        print(f"\033[91mError: {os_error}\033[0m")
+        print(f"Error: {os_error}")
     except Exception as ex:
-        print(f"\033[91mError: An unexpected error occurred: {ex}\033[0m")
+        print(f"Error: An unexpected error occurred: {ex}")
 
 def main():
     """Main program."""
@@ -469,7 +469,7 @@ def main():
 
     # Check if token is valid, renew if necessary
     if not is_token_valid():
-        print("\033[93mInfo: Token is invalid or expired. Renewing token...\033[0m")
+        print("Info: Token is invalid or expired. Renewing token...")
         manage_twitch_oauth_token()
 
     print()  # empty line
@@ -483,12 +483,12 @@ def main():
     clips = get_clips(broadcaster_id, start_timestamp, end_timestamp)
 
     if not clips:
-        print("\033[93mInfo: No clips found.\033[0m")
+        print("Info: No clips found.")
         return
 
-    print(f"\033[93mInfo: {len(clips)} clips found. Starting download...\033[0m")
+    print(f"Info: {len(clips)} clips found. Starting download...")
     downloaded_clips = download_clips(clips)
-    print("\033[93mInfo: All clips have been downloaded.\033[0m")
+    print("Info: All clips have been downloaded.")
 
     # Launch VLC with the downloaded clips
     if downloaded_clips:
