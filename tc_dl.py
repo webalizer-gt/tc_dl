@@ -1,6 +1,6 @@
 # Ensure dependencies are checked before importing anything else
 def check_dependencies():
-    """Check if yt-dlp and requests libraries are available."""
+    """Check if yt-dlp, requests and colorama libraries are available."""
     missing_dependencies = []
 
     # Check for yt-dlp
@@ -14,6 +14,12 @@ def check_dependencies():
         import requests  # noqa
     except ImportError:
         missing_dependencies.append("requests")
+
+    # Check for colorama
+    try:
+        import colorama  # noqa
+    except ImportError:
+        missing_dependencies.append("colorama")
 
     # If any dependencies are missing, notify the user and exit
     if missing_dependencies:
@@ -36,9 +42,14 @@ import argparse
 from datetime import datetime, timedelta
 import subprocess
 import shutil
+from colorama import Fore, Style, init
+
+# Initialize colorama
+init(autoreset=True)
 
 # Default values
 CONFIG_FILE = "config.json"
+LIMIT = 10  # Max clips per request
 # Global configuration variable
 config = {} 
 # In-memory cache for game names
@@ -48,7 +59,9 @@ game_cache = {}
 USER_API_URL = "https://api.twitch.tv/helix/users"
 CLIPS_API_URL = "https://api.twitch.tv/helix/clips"
 GAME_API_URL = "https://api.twitch.tv/helix/games"
-LIMIT = 10  # Max clips per request
+VALIDATE_TOKEN_URL = "https://id.twitch.tv/oauth2/validate"
+TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+
 
 def parse_arguments():
     """Parse command-line arguments."""
@@ -67,9 +80,9 @@ def load_config():
             try:
                 config = json.load(file)
             except json.JSONDecodeError:
-                print(f"Error: Unable to read {CONFIG_FILE}. Starting with an empty configuration.")
+                print(f"{Fore.RED}Error: Unable to read {CONFIG_FILE}. Starting with an empty configuration.")
     else:
-        print(f"Warning: No configuration file found. Starting with an empty configuration.")
+        print(f"{Fore.YELLOW}Warning: No configuration file found. Starting with an empty configuration.")
         config = {}
         input_defaults()
 
@@ -100,10 +113,10 @@ def input_defaults():
 
     # Validate inputs
     if not dl_folder:
-        print("Error: The download folder path cannot be empty.")
+        print(f"{Fore.RED}Error: The download folder path cannot be empty.")
         return
     if not spacer:
-        print("Error: The spacer cannot be empty.")
+        print(f"{Fore.RED}Error: The spacer cannot be empty.")
         return
 
     # Save user configuration
@@ -123,10 +136,10 @@ def input_defaults():
 
     # Validate inputs
     if not client_id:
-        print("Error: The Client ID cannot be empty.")
+        print(f"{Fore.RED}Error: The Client ID cannot be empty.")
         return
     if not client_secret:
-        print("Error: The Client Secret cannot be empty.")
+        print(f"{Fore.RED}Error: The Client Secret cannot be empty.")
         return
 
     # Save auth configuration
@@ -146,14 +159,14 @@ def is_token_valid():
             if datetime.now() < expires_at:
                 # Verify token with Twitch API
                 headers = {"Authorization": f"Bearer {auth['access_token']}"}
-                response = requests.get("https://id.twitch.tv/oauth2/validate", headers=headers)
+                response = requests.get(VALIDATE_TOKEN_URL, headers=headers)
                 if response.status_code == 200:
                     return True
                 else:
-                    print("Info: Token is invalid or expired according to Twitch API.")
+                    print(f"{Fore.YELLOW}Info: Token is invalid or expired according to Twitch API.")
                     return False
         except ValueError:
-            print("Error: Invalid date format in expires_at.")
+            print(f"{Fore.RED}Error: Invalid date format in expires_at.")
             return False
     return False
 
@@ -174,7 +187,7 @@ def save_config_section(section, data):
     # Save to the config file
     with open(CONFIG_FILE, "w") as file:
         json.dump(config, file, indent=4)
-    print(f"{section.capitalize()} configuration saved to {CONFIG_FILE}.")
+    print(f"{Fore.GREEN}{section.capitalize()} configuration saved to {CONFIG_FILE}.")
 
 def manage_twitch_oauth_token(client_id=None, client_secret=None):
     """
@@ -192,10 +205,9 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
     client_secret = client_secret or auth.get("client_secret")
 
     if not client_id or not client_secret:
-        print("Error: Client ID or Client Secret not provided.")
+        print(f"{Fore.RED}Error: Client ID or Client Secret not provided.")
         return None
 
-    url = "https://id.twitch.tv/oauth2/token"
     data = {
         "client_id": client_id,
         "client_secret": client_secret,
@@ -203,7 +215,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
     }
 
     try:
-        response = requests.post(url, data=data)
+        response = requests.post(TOKEN_URL, data=data)
         response.raise_for_status()
         token_data = response.json()
 
@@ -213,7 +225,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             expiration_date = datetime.now() + timedelta(seconds=expires_in)
             formatted_date = expiration_date.strftime("%Y-%m-%d %H:%M:%S")
 
-            print(f"Token generated successfully. New access token: {access_token}, expires at: {formatted_date}")
+            print(f"{Fore.GREEN}Token generated successfully. New access token: {access_token}, expires at: {formatted_date}")
 
             # Save auth configuration
             save_config_section("auth", {
@@ -225,7 +237,7 @@ def manage_twitch_oauth_token(client_id=None, client_secret=None):
             return token_data
 
     except requests.exceptions.RequestException as e:
-        print(f"Error: Failed to generate token. {e}")
+        print(f"{Fore.RED}Error: Failed to generate token. {e}")
 
     return None
 
@@ -268,12 +280,12 @@ def get_broadcaster_id(user_name):
         data = response.json()
         
         if not data.get("data"):
-            print(f"Error: User '{user_name}' not found.")
+            print(f"{Fore.RED}Error: User '{user_name}' not found.")
             return None
         
         return data["data"][0]["id"]
     except requests.exceptions.RequestException as e:
-        print(f"Error: Failed to fetch broadcaster ID for user '{user_name}'. {e}")
+        print(f"{Fore.RED}Error: Failed to fetch broadcaster ID for user '{user_name}'. {e}")
         return None
 
 def input_time_range():
@@ -287,11 +299,11 @@ def input_time_range():
         start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
         end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
     except ValueError:
-        print("Error: Invalid date format. Please use YYYY-MM-DD.")
+        print(f"{Fore.RED}Error: Invalid date format. Please use YYYY-MM-DD.")
         exit(1)
 
     if start_timestamp > end_timestamp:
-        print("Error: Start date cannot be after the end date.")
+        print(f"{Fore.RED}Error: Start date cannot be after the end date.")
         exit(1)
 
     return start_timestamp, end_timestamp
@@ -323,7 +335,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
             if not cursor:
                 break
         except requests.exceptions.RequestException as e:
-            print(f"Error: Failed to fetch clips. {e}")
+            print(f"{Fore.RED}Error: Failed to fetch clips. {e}")
             break
     clips.sort(key=lambda x: x["created_at"])
     return clips
@@ -356,7 +368,7 @@ def get_game_name(game_id):
             game_cache[game_id] = game_name  # Save to in-memory cache
             return game_name
     except requests.exceptions.RequestException as e:
-        print(f"Error: Failed to fetch game name for game_id {game_id}. {e}")
+        print(f"{Fore.RED}Error: Failed to fetch game name for game_id {game_id}. {e}")
     
     return "Unknown"
 
@@ -379,7 +391,7 @@ def download_clips(clips):
             game_name = re.sub(r"[^\w\s]", "", get_game_name(game_id)).strip()  # Fetch the game name
 
             if not clip_url or not clip_date:
-                print(f"Warning: Skipping clip with missing data: {clip}")
+                print(f"{Fore.YELLOW}Warning: Skipping clip with missing data: {clip}")
                 continue
 
             # Define the file name
@@ -388,10 +400,10 @@ def download_clips(clips):
 
             # Skip download if file already exists
             if os.path.exists(file_path):
-                print(f"Info: Skipping download, file already exists: {file_name}")
+                print(f"{Fore.YELLOW}Info: Skipping download, file already exists: {file_name}")
                 downloaded_clips.append(file_path)
                 continue
-            print(f"Downloading clip: {clip_url} as {file_name}")
+            print(f"Downloading clip: {file_name}")
 
             # Options for yt-dlp
             ydl_opts = {
@@ -405,7 +417,7 @@ def download_clips(clips):
             downloaded_clips.append(file_path)  # Add the file path to the list
 
         except Exception as e:
-            print(f"Error: Failed to download {clip_url}. {e}")
+            print(f"{Fore.RED}Error: Failed to download {clip_url}. {e}")
 
     return downloaded_clips
 
@@ -417,12 +429,12 @@ def open_clips_in_vlc(clips):
         clips (list): A list of file paths to open in VLC.
     """
     if not clips:
-        print("Info: No clips available to play.")
+        print(f"{Fore.YELLOW}Info: No clips available to play.")
         return
 
     open_vlc = input("Would you like to open the downloaded clips in VLC? (y/N): ").strip().lower() or "n"
     if open_vlc != 'y':
-        print("Info: VLC will not be opened.")
+        print(f"{Fore.YELLOW}Info: VLC will not be opened.")
         return
 
     # Determine the platform
@@ -437,21 +449,21 @@ def open_clips_in_vlc(clips):
             # Linux/macOS-specific VLC command
             vlc_command = ["vlc", *clips]
         else:
-            raise OSError(f"Error: Unsupported platform: {current_platform}")
+            raise OSError(f"{Fore.RED}Error: Unsupported platform: {current_platform}")
 
         # Check if VLC is installed and accessible
         if not shutil.which(vlc_command[0]):
-            raise FileNotFoundError(f"Error: {vlc_command[0]} is not installed or not in the PATH.")
+            raise FileNotFoundError(f"{Fore.RED}Error: {vlc_command[0]} is not installed or not in the PATH.")
 
         # Launch VLC
         subprocess.Popen(vlc_command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        print("Info: VLC launched successfully.")
+        print(f"{Fore.GREEN}Info: VLC launched successfully.")
     except FileNotFoundError as fnf_error:
-        print(f"Error: {fnf_error}")
+        print(f"{Fore.RED}Error: {fnf_error}")
     except OSError as os_error:
-        print(f"Error: {os_error}")
+        print(f"{Fore.RED}Error: {os_error}")
     except Exception as ex:
-        print(f"Error: An unexpected error occurred: {ex}")
+        print(f"{Fore.RED}Error: An unexpected error occurred: {ex}")
 
 def main():
     """Main program."""
@@ -469,7 +481,7 @@ def main():
 
     # Check if token is valid, renew if necessary
     if not is_token_valid():
-        print("Info: Token is invalid or expired. Renewing token...")
+        print(f"{Fore.YELLOW}Info: Token is invalid or expired. Renewing token...")
         manage_twitch_oauth_token()
 
     print()  # empty line
@@ -486,9 +498,9 @@ def main():
         print("Info: No clips found.")
         return
 
-    print(f"Info: {len(clips)} clips found. Starting download...")
+    print(f"Info: {len(clips)} clips found. {Fore.GREEN}Starting download...")
     downloaded_clips = download_clips(clips)
-    print("Info: All clips have been downloaded.")
+    print(f"{Fore.GREEN}Info: All clips have been downloaded.")
 
     # Launch VLC with the downloaded clips
     if downloaded_clips:
