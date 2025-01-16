@@ -14,11 +14,12 @@ Bulk download Twitch clips from a specific channel and time frame written in Pyt
 
 - `requests`
 - `yt-dlp`
+- `colorama`
 
 Install them in `cmd` with:
 
 ```bash
-pip install requests yt-dlp
+pip install requests yt-dlp colorama
 ```
 
 ## Configure the script
