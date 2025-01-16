@@ -49,7 +49,7 @@ init(autoreset=True)
 
 # Default values
 CONFIG_FILE = "config.json"
-LIMIT = 10  # Max clips per request
+LIMIT = 2  # Max clips per request
 # Global configuration variable
 config = {} 
 # In-memory cache for game names
@@ -321,6 +321,7 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
     clips = []
     cursor = None
 
+    seen_clip_ids = set()
     while True:
         try:
             if cursor:
@@ -329,7 +330,10 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
             response.raise_for_status()
             
             data = response.json()
-            clips.extend(data.get("data", []))
+            for clip in data.get("data", []):
+                if clip["id"] not in seen_clip_ids:
+                    clips.append(clip)
+                    seen_clip_ids.add(clip["id"])
             cursor = data.get("pagination", {}).get("cursor")
             
             if not cursor:
