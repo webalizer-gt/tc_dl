@@ -297,8 +297,6 @@ def input_time_range():
     try:
         start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
         end_timestamp = (datetime.fromisoformat(end_date) + timedelta(days=1) - timedelta(seconds=1)).isoformat() + "Z"
-        print(f"Start date: {start_timestamp}")
-        print(f"End date: {end_timestamp}")
     except ValueError:
         print(f"{Fore.RED}Error: Invalid date format. Please use YYYY-MM-DD.")
         exit(1)
