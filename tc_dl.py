@@ -49,7 +49,6 @@ init(autoreset=True)
 
 # Default values
 CONFIG_FILE = "config.json"
-LIMIT = 2  # Max clips per request
 # Global configuration variable
 config = {} 
 # In-memory cache for game names
@@ -281,7 +280,7 @@ def get_broadcaster_id(user_name):
         
         if not data.get("data"):
             print(f"{Fore.RED}Error: User '{user_name}' not found.")
-            return None
+            exit(1)
         
         return data["data"][0]["id"]
     except requests.exceptions.RequestException as e:
@@ -297,7 +296,9 @@ def input_time_range():
     # Validate dates
     try:
         start_timestamp = datetime.fromisoformat(start_date).isoformat() + "Z"
-        end_timestamp = datetime.fromisoformat(end_date).isoformat() + "Z"
+        end_timestamp = (datetime.fromisoformat(end_date) + timedelta(days=1) - timedelta(seconds=1)).isoformat() + "Z"
+        print(f"Start date: {start_timestamp}")
+        print(f"End date: {end_timestamp}")
     except ValueError:
         print(f"{Fore.RED}Error: Invalid date format. Please use YYYY-MM-DD.")
         exit(1)
@@ -312,35 +313,41 @@ def get_clips(broadcaster_id, start_timestamp, end_timestamp):
     """Fetch clips from the Twitch API."""
     auth_config = get_auth_config()
     headers = {"Client-ID": auth_config["client_id"], "Authorization": f"Bearer {auth_config['access_token']}"}
-    params = {
-        "broadcaster_id": broadcaster_id,
-        "first": LIMIT,
-        "started_at": start_timestamp,
-        "ended_at": end_timestamp,
-    }
     clips = []
-    cursor = None
-
     seen_clip_ids = set()
-    while True:
-        try:
-            if cursor:
-                params["after"] = cursor
-            response = requests.get(CLIPS_API_URL, headers=headers, params=params)
-            response.raise_for_status()
-            
-            data = response.json()
-            for clip in data.get("data", []):
-                if clip["id"] not in seen_clip_ids:
-                    clips.append(clip)
-                    seen_clip_ids.add(clip["id"])
-            cursor = data.get("pagination", {}).get("cursor")
-            
-            if not cursor:
+
+    def fetch_clips(limit):
+        params = {
+            "broadcaster_id": broadcaster_id,
+            "first": limit,
+            "started_at": start_timestamp,
+            "ended_at": end_timestamp,
+        }
+        cursor = None
+        while True:
+            try:
+                if cursor:
+                    params["after"] = cursor
+                response = requests.get(CLIPS_API_URL, headers=headers, params=params)
+                response.raise_for_status()
+                
+                data = response.json()
+                for clip in data.get("data", []):
+                    if clip["id"] not in seen_clip_ids:
+                        clips.append(clip)
+                        seen_clip_ids.add(clip["id"])
+                cursor = data.get("pagination", {}).get("cursor")
+                
+                if not cursor:
+                    break
+            except requests.exceptions.RequestException as e:
+                print(f"{Fore.RED}Error: Failed to fetch clips. {e}")
                 break
-        except requests.exceptions.RequestException as e:
-            print(f"{Fore.RED}Error: Failed to fetch clips. {e}")
-            break
+
+    # Fetch clips with different limits
+    fetch_clips(2)
+    fetch_clips(99)
+
     clips.sort(key=lambda x: x["created_at"])
     return clips
 
