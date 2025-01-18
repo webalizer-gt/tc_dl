@@ -69,6 +69,10 @@ def parse_arguments():
         "-c", action="store_true",
         help="Configure user defaults and Twitch credentials."
     )
+    parser.add_argument(
+        "-s", action="store_true",
+        help="Start in simulation mode (does everything but download)."
+    )
     return parser.parse_args()
 
 def load_config():
@@ -381,7 +385,7 @@ def get_game_name(game_id):
     
     return "Unknown"
 
-def download_clips(clips):
+def download_clips(clips, simulation_mode=False):
     """Download clips using yt-dlp and format file names as specified."""
     user_config = get_user_config()
     spacer = user_config["spacer"]
@@ -412,7 +416,13 @@ def download_clips(clips):
                 print(f"{Fore.YELLOW}Info: Skipping download, file already exists: {file_name}")
                 downloaded_clips.append(file_path)
                 continue
-            print(f"Downloading clip: {file_name}")
+
+            if simulation_mode:
+                print(f"{Fore.GREEN}Simulating download:{Fore.RESET} {file_name}")
+                downloaded_clips.append(file_path)
+                continue
+
+            print(f"{Fore.GREEN}Downloading clip:{Fore.RESET} {file_name}")
 
             # Options for yt-dlp
             ydl_opts = {
@@ -508,7 +518,7 @@ def main():
         return
 
     print(f"Info: {len(clips)} clips found. {Fore.GREEN}Starting download...")
-    downloaded_clips = download_clips(clips)
+    downloaded_clips = download_clips(clips, simulation_mode=args.s)
     print(f"{Fore.GREEN}Info: All clips have been downloaded.")
 
     # Launch VLC with the downloaded clips
